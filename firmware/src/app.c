@@ -68,6 +68,12 @@ static void APP_INST0_CLIENT1_Callback (DRV_TEMP_SENSOR_EVENT event, uintptr_t c
         case DRV_TEMP_SENSOR_EVENT_TEMP_READ_DONE:
             pTempSensorData->isTempReadDone = true;
             break;
+        case DRV_TEMP_SENSOR_EVENT_EEPROM_WRITE_DONE:
+            pTempSensorData->isEEPROMWriteDone = true;
+            break;
+        case DRV_TEMP_SENSOR_EVENT_EEPROM_READ_DONE:
+            pTempSensorData->isEEPROMReadDone = true;
+            break;
         case DRV_TEMP_SENSOR_EVENT_ERROR:
             pTempSensorData->tempSensorError = true;
             break;
@@ -122,6 +128,7 @@ void APP_Initialize ( void )
 void APP_Tasks ( void )
 {
     volatile APP_DATA *pTempSensorData = &appData;
+    static DRV_TEMP_SENSOR_CHN temp_channel = DRV_TEMP_SENSOR_CHN_INT;
 
     /* Check the application's current state. */
     switch ( appData.state ) {
@@ -138,7 +145,8 @@ void APP_Tasks ( void )
             DRV_TEMP_SENSOR_TransferEventHandlerSet (pTempSensorData->drvHandle, APP_INST0_CLIENT1_Callback, (uintptr_t)pTempSensorData);
 
             DRV_TEMP_SENSOR_CONFIG_PARAMS configParams;
-            configParams.tempSensorAddr = 0x4F;
+            configParams.eepromAddr = 0x57;
+            configParams.tempSensorAddr = 0x4C;
             configParams.transferParams.clockSpeed = 400000;
 
             /* Client-1 registers the transfer parameters (in other words, client specific data) */
@@ -150,10 +158,10 @@ void APP_Tasks ( void )
         case APP_STATE_READ_SENSOR: {
             pTempSensorData->isTempReadDone = false;
             pTempSensorData->tempSensorError = false;
-            if (DRV_TEMP_SENSOR_TemperatureRead (pTempSensorData->drvHandle, (uint16_t *)&pTempSensorData->rawTemperatureData) == true) {
+            if (DRV_TEMP_SENSOR_TemperatureRead (pTempSensorData->drvHandle, (uint16_t *)&pTempSensorData->rawTemperatureData, temp_channel) == true) {
                 appData.state = APP_STATE_READ_SENSOR_WAIT;
             } else {
-                printf ("I0-C1: Temperature read error!\r\n");
+                printf ("Channel %d: Temperature read error!\r\n", temp_channel);
                 SYS_TIME_DelayMS (1000, &timer);
                 appData.state = APP_STATE_IDLE;
             }
@@ -162,14 +170,19 @@ void APP_Tasks ( void )
 
         case APP_STATE_READ_SENSOR_WAIT: {
             if (pTempSensorData->tempSensorError == true) {
-                printf ("I0-C1: Temperature read error!\r\n");
+                printf ("Channel %d: Temperature read error!\r\n", temp_channel);
                 SYS_TIME_DelayMS (1000, &timer);
                 appData.state = APP_STATE_IDLE;
             } else if (pTempSensorData->isTempReadDone == true) {
-                pTempSensorData->temperature = DRV_TEMP_SENSOR_TemperatureGet (pTempSensorData->drvHandle, (uint16_t *)&pTempSensorData->rawTemperatureData);
-                printf ("I0-C1: Temperature = %dC\r\n", pTempSensorData->temperature);
-                SYS_TIME_DelayMS (1000, &timer);
-                appData.state = APP_STATE_IDLE;
+                pTempSensorData->temperature[temp_channel] = DRV_TEMP_SENSOR_TemperatureGet (pTempSensorData->drvHandle, (uint16_t *)&pTempSensorData->rawTemperatureData);
+                printf ("Channel %d: Temperature = %dC\r\n", temp_channel, pTempSensorData->temperature[temp_channel]);
+                if (++ temp_channel >= DRV_TEMP_SENSOR_CHN_MAX) {
+                    temp_channel = DRV_TEMP_SENSOR_CHN_INT;
+                    printf("\r\n");
+                    SYS_TIME_DelayMS (1000, &timer);
+                    appData.state = APP_STATE_IDLE;
+                } else
+                    appData.state = APP_STATE_READ_SENSOR;
             }
             break;
         }

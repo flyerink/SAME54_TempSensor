@@ -15,6 +15,10 @@
 
 #define APP_TEMP_TEMPERATURE_REG_ADDR               0x00
 
+const uint8_t emc1414_reg_addr[DRV_TEMP_SENSOR_CHN_MAX] = {
+    0, 1, 0x23, 0x2A
+};
+
 DRV_TEMP_SENSOR_OBJ gDrvTempSensorObj[DRV_TEMP_SENSOR_INSTANCES_NUMBER];
 
 static void DRV_TEMP_SENSOR_DRVEventHandler ( DRV_I2C_TRANSFER_EVENT event, DRV_I2C_TRANSFER_HANDLE transferHandle, uintptr_t context )
@@ -198,7 +202,7 @@ uint8_t DRV_TEMP_SENSOR_TemperatureGet (const DRV_HANDLE handle, uint16_t *tempe
     return (uint8_t)temp;
 }
 
-bool DRV_TEMP_SENSOR_TemperatureRead (const DRV_HANDLE handle, uint16_t *temperatureData)
+bool DRV_TEMP_SENSOR_WriteRegistor (const DRV_HANDLE handle, uint8_t addr, uint8_t value)
 {
     DRV_TEMP_SENSOR_CLIENT_OBJ *clientObj = DRV_TEMP_SENSOR_ClientObjGet (handle);
     DRV_TEMP_SENSOR_OBJ *dObj     = NULL;
@@ -214,7 +218,66 @@ bool DRV_TEMP_SENSOR_TemperatureRead (const DRV_HANDLE handle, uint16_t *tempera
 
     clientObj->isBusy = true;
     dObj = &gDrvTempSensorObj[clientObj->drvIndex];
-    clientObj->wrBuffer[0] = APP_TEMP_TEMPERATURE_REG_ADDR;
+    clientObj->wrBuffer[0] = addr;
+    clientObj->wrBuffer[1] = value;
+    clientObj->event = DRV_TEMP_SENSOR_EVENT_TEMP_READ_DONE;
+    dObj->drvInterface->write (clientObj->i2cDrvHandle, clientObj->configParams.tempSensorAddr,
+                               (void *)clientObj->wrBuffer, 2, &transferHandle);
+
+    if (transferHandle != DRV_I2C_TRANSFER_HANDLE_INVALID) {
+        return true;
+    } else {
+        clientObj->isBusy = false;
+        return false;
+    }
+}
+
+bool DRV_TEMP_SENSOR_ReadRegistor (const DRV_HANDLE handle, uint8_t addr, uint8_t *value)
+{
+    DRV_TEMP_SENSOR_CLIENT_OBJ *clientObj = DRV_TEMP_SENSOR_ClientObjGet (handle);
+    DRV_TEMP_SENSOR_OBJ *dObj     = NULL;
+    DRV_I2C_TRANSFER_HANDLE transferHandle;
+
+    if (clientObj == NULL) {
+        return false;
+    }
+
+    if (clientObj->isBusy == true) {
+        return false;
+    }
+
+    clientObj->isBusy = true;
+    dObj = &gDrvTempSensorObj[clientObj->drvIndex];
+    clientObj->wrBuffer[0] = addr;
+    clientObj->event = DRV_TEMP_SENSOR_EVENT_TEMP_READ_DONE;
+    dObj->drvInterface->writeRead (clientObj->i2cDrvHandle, clientObj->configParams.tempSensorAddr,
+                                   (void *)clientObj->wrBuffer, 1, (void *)value, 1, &transferHandle);
+
+    if (transferHandle != DRV_I2C_TRANSFER_HANDLE_INVALID) {
+        return true;
+    } else {
+        clientObj->isBusy = false;
+        return false;
+    }
+}
+
+bool DRV_TEMP_SENSOR_TemperatureRead (const DRV_HANDLE handle, uint16_t *temperatureData, DRV_TEMP_SENSOR_CHN channel)
+{
+    DRV_TEMP_SENSOR_CLIENT_OBJ *clientObj = DRV_TEMP_SENSOR_ClientObjGet (handle);
+    DRV_TEMP_SENSOR_OBJ *dObj     = NULL;
+    DRV_I2C_TRANSFER_HANDLE transferHandle;
+
+    if (clientObj == NULL) {
+        return false;
+    }
+
+    if (clientObj->isBusy == true) {
+        return false;
+    }
+
+    clientObj->isBusy = true;
+    dObj = &gDrvTempSensorObj[clientObj->drvIndex];
+    clientObj->wrBuffer[0] = emc1414_reg_addr[channel];
     clientObj->event = DRV_TEMP_SENSOR_EVENT_TEMP_READ_DONE;
     dObj->drvInterface->writeRead (clientObj->i2cDrvHandle, clientObj->configParams.tempSensorAddr, (void *)clientObj->wrBuffer, 1, (void *)temperatureData, 2, &transferHandle);
 

@@ -16,7 +16,11 @@ void DRV_TEMP_SENSOR_TransferEventHandlerSet( const DRV_HANDLE handle, const DRV
 
 uint8_t DRV_TEMP_SENSOR_TemperatureGet(const DRV_HANDLE handle, uint16_t* temperatureData);
 
-bool DRV_TEMP_SENSOR_TemperatureRead(const DRV_HANDLE handle, uint16_t* temperatureData);
+bool DRV_TEMP_SENSOR_TemperatureRead(const DRV_HANDLE handle, uint16_t* temperatureData, DRV_TEMP_SENSOR_CHN channel);
+
+bool DRV_TEMP_SENSOR_WriteRegistor (const DRV_HANDLE handle, uint8_t addr, uint8_t value);
+
+bool DRV_TEMP_SENSOR_ReadRegistor (const DRV_HANDLE handle, uint8_t addr, uint8_t *value);
 
 bool DRV_TEMP_SENSOR_EEPROMWrite(const DRV_HANDLE handle, uint8_t memAddr, uint8_t* wrBuffer, uint8_t nWrBytes);
 

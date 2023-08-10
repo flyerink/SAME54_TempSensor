@@ -94,9 +94,11 @@ typedef struct
     /* TODO: Define any additional data used by the application. */
     DRV_HANDLE drvHandle;
     volatile bool isTempReadDone;
+    volatile bool isEEPROMWriteDone;
+    volatile bool isEEPROMReadDone;
     volatile bool tempSensorError;
     uint16_t rawTemperatureData;
-    uint8_t temperature;
+    uint8_t temperature[DRV_TEMP_SENSOR_CHN_MAX];
     uint8_t wrBuffer[2];
     uint8_t rdBuffer[2];
 
